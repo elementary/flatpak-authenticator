@@ -28,6 +28,8 @@ public class FlatpakAuthenticator.Application : Gtk.Application {
     }
 
     protected override void activate () {
+        AuthServices.get_default ().load_services ();
+
         var authenticator = new Authenticator ();
 
         Bus.own_name (BusType.SESSION, "io.elementary.FlatpakAuthenticator", BusNameOwnerFlags.NONE, (connection) => {

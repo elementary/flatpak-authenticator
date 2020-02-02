@@ -32,4 +32,22 @@ namespace FlatpakAuthenticator.Utils {
         string escaped_peer = peer.replace (".", "_").substring (1);
         return FLATPAK_AUTHENTICATOR_REQUEST_OBJECT_PATH_PREFIX.concat (escaped_peer, "/", token);
     }
+
+    public static string get_id_from_ref (string @ref) {
+        var parts = @ref.split ("/");
+        if (parts.length != 4) {
+            return "none";
+        }
+
+        var id = parts[1];
+        if (flatpak_id_has_subref_suffix (id)) {
+            id = id.substring (0, id.last_index_of_char ('.'));
+        }
+
+        return id;
+    }
+
+    public static bool flatpak_id_has_subref_suffix (string id) {
+        return id.has_suffix (".Locale") || id.has_suffix (".Debug") || id.has_suffix (".Sources");
+    }
 }

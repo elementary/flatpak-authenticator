@@ -47,9 +47,13 @@ public class FlatpakAuthenticator.Authenticator : GLib.Object {
     ) throws GLib.Error {
         debug ("handling Authenticator.RequestRefTokens");
 
-        if (!authenticator_options.contains ("url")) {
+        GLib.Variant uri_variant;
+        string orig_key;
+        if (!authenticator_options.lookup_extended ("url", out orig_key, out uri_variant)) {
             throw new DBus.Error.INVALID_ARGS ("No url specified");
         }
+
+        var uri = uri_variant.get_string ();
 
         string request_path = Utils.create_request_path (sender, handle_token);
         if (request_path == null) {
@@ -60,7 +64,27 @@ public class FlatpakAuthenticator.Authenticator : GLib.Object {
             throw new DBus.Error.FAILED ("DBus connection not available");
         }
 
-        var request = new AuthenticatorRequest ();
+        var n_refs = refs.length;
+        var data = new RequestRefTokensData () {
+            sender = sender,
+            uri = new Soup.URI (uri),
+            remote = remote,
+            unresolved_tokens = new Gee.HashSet<string> (),
+            resolved_tokens = new Gee.HashMap<string, Gee.ArrayList<string>> (),
+            authenticator_options = authenticator_options,
+            token_types = new int[n_refs],
+            denied_tokens = new string[n_refs],
+            refs = new string[n_refs]
+        };
+
+        for (int i = 0; i < refs.length; i++) {
+            string @ref = refs[i].@ref;
+            data.refs[i] = @ref;
+            data.token_types[i] = refs[i].token_type;
+            data.unresolved_tokens.add (Utils.get_id_from_ref (@ref));
+        }
+
+        var request = new AuthenticatorRequest (data);
         connection.register_object (request_path, request);
 
         return new DBus.ObjectPath (request_path);

@@ -19,9 +19,84 @@
 * Authored by: David Hewitt <davidmhewitt@gmail.com>
 */
 
+public class FlatpakAuthenticator.RequestRefTokensData : GLib.Object {
+    public string sender { get; set; }
+    public Soup.URI? uri { get; set; }
+    public string remote { get; set; }
+    public GLib.HashTable<string, GLib.Variant?> authenticator_options { get; set; }
+    public Gee.HashSet<string> unresolved_tokens { get; set; }
+    public Gee.HashMap<string, Gee.ArrayList<string>> resolved_tokens { get; set; }
+    public string[] denied_tokens { get; set; }
+    public int[] token_types;
+    public string[] refs { get; set; }
+
+    public string? token;
+    public Webflow.WebflowData webflow;
+}
+
+public enum FlatpakAuthenticator.FlatpakAuthResponse {
+    OK,
+    CANCELLED,
+    ERROR
+}
+
 [DBus (name = "org.freedesktop.Flatpak.AuthenticatorRequest")]
 public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
+        [DBus (visible = false)]
+        public RequestRefTokensData request_data { get; construct; }
+
+        public AuthenticatorRequest (RequestRefTokensData data) {
+            Object (request_data: data);
+        }
+
+        construct {
+            var auth_services = AuthServices.get_default ();
+            request_data.token = auth_services.lookup_service_token (request_data.remote);
+            if (request_data.token == null) {
+                request_data.webflow = Webflow.start (this, request_data.sender, request_data.uri, "login", (query, error) => {
+                    var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
+                    if (error != null) {
+                        debug ("webflow complete with errors");
+
+                        if (error is IOError.CANCELLED) {
+                            response (FlatpakAuthResponse.CANCELLED, response_data);
+                        } else {
+                            response_data["error-message"] = error.message;
+                            response (FlatpakAuthResponse.ERROR, response_data);
+                        }
+                    } else {
+                        debug ("webflow complete");
+
+                        string? token = null;
+                        if (query != null) {
+                            token = query.lookup ("token");
+                        }
+
+                        if (token == null) {
+                            response_data["error-message"] = "No token returned by server";
+                            response (FlatpakAuthResponse.ERROR, response_data);
+                        }
+
+                        request_data.token = token;
+
+                        debug ("Logged in, new token %s", token);
+
+                        auth_services.update_service_token (request_data.remote, token);
+
+                        get_unresolved_tokens ();
+                    }
+                });
+            } else {
+                get_unresolved_tokens ();
+            }
+        }
+
         public void close () throws GLib.Error {
+            debug ("handling request.Close %s", request_data.remote);
+
+            if (request_data.webflow != null) {
+                Webflow.cancel (request_data.webflow);
+            }
         }
 
         public signal void webflow (string uri, GLib.HashTable<string, GLib.Variant?> options);
