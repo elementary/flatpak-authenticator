@@ -73,7 +73,7 @@ public class FlatpakAuthenticator.Authenticator : GLib.Object {
             resolved_tokens = new Gee.HashMap<string, Gee.ArrayList<string>> (),
             authenticator_options = authenticator_options,
             token_types = new int[n_refs],
-            denied_tokens = new string[n_refs],
+            denied_tokens = new Gee.ArrayList<string> (),
             refs = new string[n_refs]
         };
 
@@ -82,6 +82,8 @@ public class FlatpakAuthenticator.Authenticator : GLib.Object {
             data.refs[i] = @ref;
             data.token_types[i] = refs[i].token_type;
             data.unresolved_tokens.add (Utils.get_id_from_ref (@ref));
+
+            debug ("Adding unresolved_token %s", @ref);
         }
 
         var request = new AuthenticatorRequest (data);

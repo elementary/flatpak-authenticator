@@ -50,4 +50,28 @@ namespace FlatpakAuthenticator.Utils {
     public static bool flatpak_id_has_subref_suffix (string id) {
         return id.has_suffix (".Locale") || id.has_suffix (".Debug") || id.has_suffix (".Sources");
     }
+
+    public static Soup.Session create_soup_session (string user_agent) {
+        var soup_session = new Soup.Session.with_options (
+            Soup.SESSION_USER_AGENT, user_agent,
+            Soup.SESSION_SSL_USE_SYSTEM_CA_FILE, true,
+            Soup.SESSION_USE_THREAD_CONTEXT, true,
+            Soup.SESSION_TIMEOUT, 60,
+            Soup.SESSION_IDLE_TIMEOUT, 60
+        );
+
+        soup_session.remove_feature_by_type (typeof (Soup.ContentDecoder));
+
+        var http_proxy = Environment.get_variable ("http_proxy");
+        if (http_proxy != null) {
+            var proxy_uri = new Soup.URI (http_proxy);
+            if (proxy_uri == null) {
+                warning ("Invalid proxy URI '%s'", http_proxy);
+            } else {
+                soup_session.@set (Soup.SESSION_PROXY_URI, proxy_uri);
+            }
+        }
+
+        return soup_session;
+    }
 }

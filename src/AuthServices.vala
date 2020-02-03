@@ -140,7 +140,10 @@ public class FlatpakAuthenticator.AuthServices {
         }
 
         DirUtils.create_with_parents (path_dir, 0777);
-        keyfile.save_to_file (path);
-
+        try {
+            keyfile.save_to_file (path);
+        } catch (Error e) {
+            warning ("Unable to save tokens to keyfile: %s", e.message);
+        }
     }
 }
