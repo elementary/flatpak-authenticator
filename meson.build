@@ -15,6 +15,7 @@ executable(
     'src/Authenticator.vala',
     'src/AuthServices.vala',
     'src/LoginDialog.vala',
+    'src/StoredTokens.vala',
     'src/Utils.vala',
     'src/Webflow.vala',
     dependencies: [

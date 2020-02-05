@@ -28,6 +28,7 @@ public class FlatpakAuthenticator.Application : Gtk.Application {
     }
 
     protected override void activate () {
+        StoredTokens.get_default ().load_tokens ();
         AuthServices.get_default ().load_services ();
 
         var authenticator = new Authenticator ();

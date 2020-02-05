@@ -54,6 +54,21 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
         construct {
             soup_session = Utils.create_soup_session ("io.elementary.flatpak-authenticator");
 
+            var stored_tokens = StoredTokens.get_default ();
+
+            foreach (var id in request_data.unresolved_tokens) {
+                var stored_token = stored_tokens.lookup_app_token (request_data.remote, id);
+                if (stored_token != null) {
+                    resolve_id (id, stored_token);
+                }
+            }
+
+            if (request_data.unresolved_tokens.size > 0) {
+                start_api_flow ();
+            }
+        }
+
+        private void start_api_flow () {
             var auth_services = AuthServices.get_default ();
             request_data.token = auth_services.lookup_service_token (request_data.remote);
             if (request_data.token == null) {
@@ -94,7 +109,8 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
             var root = json.get_object ();
             if (root.has_member ("access_token")) {
-                debug ("has access token");
+                var token = root.get_string_member ("access_token");
+                AuthServices.get_default ().update_service_token (request_data.remote, token);
             }
         }
 
