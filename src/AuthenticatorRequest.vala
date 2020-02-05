@@ -57,41 +57,43 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             var auth_services = AuthServices.get_default ();
             request_data.token = auth_services.lookup_service_token (request_data.remote);
             if (request_data.token == null) {
-                request_data.webflow = Webflow.start (this, request_data.sender, request_data.uri, "login", (query, error) => {
+                var login_dialog = new LoginDialog ();
+                login_dialog.login.connect (on_login);
+                var response_code = login_dialog.run ();
+
+                if (response_code != Gtk.ResponseType.APPLY) {
                     var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
-                    if (error != null) {
-                        debug ("webflow complete with errors");
-
-                        if (error is IOError.CANCELLED) {
-                            response (FlatpakAuthResponse.CANCELLED, response_data);
-                        } else {
-                            response_data["error-message"] = error.message;
-                            response (FlatpakAuthResponse.ERROR, response_data);
-                        }
-                    } else {
-                        debug ("webflow complete");
-
-                        string? token = null;
-                        if (query != null) {
-                            token = query.lookup ("token");
-                        }
-
-                        if (token == null) {
-                            response_data["error-message"] = "No token returned by server";
-                            response (FlatpakAuthResponse.ERROR, response_data);
-                        }
-
-                        request_data.token = token;
-
-                        debug ("Logged in, new token %s", token);
-
-                        auth_services.update_service_token (request_data.remote, token);
-
-                        get_unresolved_tokens ();
-                    }
-                });
+                    Idle.add (() => {
+                        response (FlatpakAuthResponse.CANCELLED, response_data);
+                        return false;
+                    });
+                }
             } else {
                 get_unresolved_tokens ();
+            }
+        }
+
+        private void on_login (string username, string password) {
+            var json = new Json.Object ();
+            json.set_string_member ("username", username);
+            json.set_string_member ("password", password);
+
+            var msg = create_api_call (request_data.uri, "login", null, json);
+            soup_session.queue_message (msg, login_cb);
+        }
+
+        private void login_cb (Soup.Session session, Soup.Message message) {
+            debug ("Login uri: %s", message.uri.to_string (false));
+            debug ("API: got login response, status code=%u", message.status_code);
+
+            var json = verify_api_call_json_response (message);
+            if (json == null) {
+                return;
+            }
+
+            var root = json.get_object ();
+            if (root.has_member ("access_token")) {
+                debug ("has access token");
             }
         }
 
@@ -209,7 +211,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             return json;
         }
 
-        private Soup.Message create_api_call (Soup.URI base_uri, string api_path, string token, Json.Object json) {
+        private Soup.Message create_api_call (Soup.URI base_uri, string api_path, string? token, Json.Object json) {
             var root = new Json.Node.alloc ();
             root.init_object (json);
             var body = Json.to_string (root, false);
@@ -218,8 +220,11 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
             var msg = new Soup.Message.from_uri ("POST", api_url);
             msg.set_request ("application/json", Soup.MemoryUse.COPY, body.data);
-            var bearer = "Bearer %s".printf (token);
-            msg.request_headers.append ("Authorization", bearer);
+
+            if (token != null) {
+                var bearer = "Bearer %s".printf (token);
+                msg.request_headers.append ("Authorization", bearer);
+            }
 
             return msg;
         }

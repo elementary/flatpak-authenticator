@@ -14,6 +14,7 @@ executable(
     'src/AuthenticatorRequest.vala',
     'src/Authenticator.vala',
     'src/AuthServices.vala',
+    'src/LoginDialog.vala',
     'src/Utils.vala',
     'src/Webflow.vala',
     dependencies: [
@@ -24,7 +25,8 @@ executable(
         dependency('dbus-glib-1'),
         dependency('gtk+-3.0'),
         dependency('libsoup-2.4'),
-        dependency('json-glib-1.0')
+        dependency('json-glib-1.0'),
+        dependency('granite')
     ]
 )
 
