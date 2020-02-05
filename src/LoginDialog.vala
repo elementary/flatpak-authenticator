@@ -97,8 +97,6 @@ public class FlatpakAuthenticator.LoginDialog : Gtk.Dialog {
             if (response_id == Gtk.ResponseType.APPLY) {
                 login (username_entry.text, password_entry.text);
             }
-
-            destroy ();
         });
     }
 

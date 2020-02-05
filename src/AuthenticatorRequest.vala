@@ -60,6 +60,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 var login_dialog = new LoginDialog ();
                 login_dialog.login.connect (on_login);
                 var response_code = login_dialog.run ();
+                login_dialog.destroy ();
 
                 if (response_code != Gtk.ResponseType.APPLY) {
                     var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
