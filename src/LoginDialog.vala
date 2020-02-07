@@ -24,7 +24,13 @@ public class FlatpakAuthenticator.LoginDialog : Gtk.Dialog {
     private Gtk.Entry username_entry;
     private Gtk.Entry password_entry;
 
+    public string? error_message { get; construct; }
+
     public signal void login (string username, string password);
+
+    public LoginDialog (string? error_message) {
+        Object (error_message: error_message);
+    }
 
     construct {
         var image = new Gtk.Image.from_icon_name ("preferences-desktop-online-accounts", Gtk.IconSize.DIALOG);
@@ -34,11 +40,18 @@ public class FlatpakAuthenticator.LoginDialog : Gtk.Dialog {
         primary_label.get_style_context ().add_class (Granite.STYLE_CLASS_PRIMARY_LABEL);
         primary_label.xalign = 0;
 
-        var secondary_label = new Gtk.Label (_("Applications you have purchased will be stored in your account"));
+        var secondary_label = new Gtk.Label (_("Applications you purchase will be stored in your account"));
         secondary_label.margin_bottom = 18;
         secondary_label.max_width_chars = 50;
         secondary_label.wrap = true;
         secondary_label.xalign = 0;
+
+        var error_label = new Gtk.Label (error_message);
+        error_label.margin_bottom = 18;
+        error_label.max_width_chars = 50;
+        error_label.wrap = true;
+        error_label.xalign = 0;
+        error_label.get_style_context ().add_class (Gtk.STYLE_CLASS_ERROR);
 
         username_entry = new Gtk.Entry ();
         username_entry.activates_default = true;
@@ -68,7 +81,14 @@ public class FlatpakAuthenticator.LoginDialog : Gtk.Dialog {
         card_layout.attach (image, 0, 0, 1, 2);
         card_layout.attach (primary_label, 1, 0);
         card_layout.attach (secondary_label, 1, 1);
-        card_layout.attach (card_grid, 1, 2);
+        if (error_message != null) {
+            secondary_label.margin_bottom = 6;
+            card_layout.attach (error_label, 1, 2);
+            card_layout.attach (card_grid, 1, 3);
+        } else {
+            card_layout.attach (card_grid, 1, 2);
+        }
+
         card_layout.show_all ();
 
         get_content_area ().add (card_layout);

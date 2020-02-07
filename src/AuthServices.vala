@@ -111,7 +111,7 @@ public class FlatpakAuthenticator.AuthServices {
         return lookup_service (remote).token;
     }
 
-    public void update_service_token (string remote, string token) {
+    public void update_service_token (string remote, string? token) {
         debug ("Updating token for remote %s", remote);
 
         var service = lookup_service (remote);

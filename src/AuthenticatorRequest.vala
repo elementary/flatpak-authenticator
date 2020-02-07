@@ -42,6 +42,8 @@ public enum FlatpakAuthenticator.FlatpakAuthResponse {
 
 [DBus (name = "org.freedesktop.Flatpak.AuthenticatorRequest")]
 public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
+        private const string LOGIN_ENDPOINT = "/login";
+
         [DBus (visible = false)]
         public RequestRefTokensData request_data { get; construct; }
 
@@ -68,11 +70,11 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             }
         }
 
-        private void start_api_flow () {
+        private void start_api_flow (string? error = null) {
             var auth_services = AuthServices.get_default ();
             request_data.token = auth_services.lookup_service_token (request_data.remote);
             if (request_data.token == null) {
-                var login_dialog = new LoginDialog ();
+                var login_dialog = new LoginDialog (error);
                 login_dialog.login.connect (on_login);
                 var response_code = login_dialog.run ();
                 login_dialog.destroy ();
@@ -94,7 +96,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             json.set_string_member ("username", username);
             json.set_string_member ("password", password);
 
-            var msg = create_api_call (request_data.uri, "login", null, json);
+            var msg = create_api_call (request_data.uri, LOGIN_ENDPOINT, null, json);
             soup_session.queue_message (msg, login_cb);
         }
 
@@ -201,6 +203,19 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
         private Json.Node? verify_api_call_json_response (Soup.Message msg) {
             var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
+
+            if (msg.status_code == 401) {
+                if (msg.uri.get_path () == LOGIN_ENDPOINT) {
+                    start_api_flow (_("Incorrect credentials. Please try again."));
+                // Our token has probably expired
+                } else {
+                    AuthServices.get_default ().update_service_token (request_data.remote, null);
+                    start_api_flow (null);
+                }
+
+                return null;
+            }
+
             if (msg.status_code != 200) {
                 response_data["error-message"] = "API call failed, service returned status %u".printf (msg.status_code);
                 response (FlatpakAuthResponse.ERROR, response_data);
