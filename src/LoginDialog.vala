@@ -27,6 +27,7 @@ public class FlatpakAuthenticator.LoginDialog : Gtk.Dialog {
     public string? error_message { get; construct; }
 
     public signal void login (string username, string password);
+    public signal void skip ();
 
     public LoginDialog (string? error_message) {
         Object (error_message: error_message);
@@ -95,7 +96,8 @@ public class FlatpakAuthenticator.LoginDialog : Gtk.Dialog {
 
         get_action_area ().margin = 5;
 
-        add_button (_("Cancel"), Gtk.ResponseType.CLOSE);
+        add_button (_("Cancel"), Gtk.ResponseType.CANCEL);
+        add_button (_("Skip"), Gtk.ResponseType.REJECT);
 
         login_button = (Gtk.Button) add_button (_("Login"), Gtk.ResponseType.APPLY);
         login_button.get_style_context ().add_class (Gtk.STYLE_CLASS_SUGGESTED_ACTION);
@@ -116,6 +118,10 @@ public class FlatpakAuthenticator.LoginDialog : Gtk.Dialog {
         response.connect ((response_id) => {
             if (response_id == Gtk.ResponseType.APPLY) {
                 login (username_entry.text, password_entry.text);
+            }
+
+            if (response_id == Gtk.ResponseType.REJECT) {
+                skip ();
             }
         });
     }

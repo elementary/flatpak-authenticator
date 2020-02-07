@@ -83,10 +83,11 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             if (request_data.token == null) {
                 var login_dialog = new LoginDialog (error);
                 login_dialog.login.connect (on_login);
+                login_dialog.skip.connect (get_unresolved_tokens);
                 var response_code = login_dialog.run ();
                 login_dialog.destroy ();
 
-                if (response_code != Gtk.ResponseType.APPLY) {
+                if (response_code == Gtk.ResponseType.CANCEL) {
                     var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
                     Idle.add (() => {
                         response (FlatpakAuthResponse.CANCELLED, response_data);
