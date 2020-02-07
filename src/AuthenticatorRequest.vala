@@ -57,15 +57,22 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             soup_session = Utils.create_soup_session ("io.elementary.flatpak-authenticator");
 
             var stored_tokens = StoredTokens.get_default ();
+            var found_tokens = new Gee.HashMap<string, string> ();
 
             foreach (var id in request_data.unresolved_tokens) {
                 var stored_token = stored_tokens.lookup_app_token (request_data.remote, id);
                 if (stored_token != null) {
-                    resolve_id (id, stored_token);
+                    found_tokens[id] = stored_token;
                 }
             }
 
-            if (request_data.unresolved_tokens.size > 0) {
+            foreach (var item in found_tokens.entries) {
+                resolve_id (item.key, item.value);
+            }
+
+            if (request_data.unresolved_tokens.size == 0) {
+                check_done ();
+            } else {
                 start_api_flow ();
             }
         }
@@ -113,6 +120,8 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             if (root.has_member ("access_token")) {
                 var token = root.get_string_member ("access_token");
                 AuthServices.get_default ().update_service_token (request_data.remote, token);
+
+                get_unresolved_tokens ();
             }
         }
 
@@ -166,6 +175,9 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                     }
 
                     resolve_id (id, token);
+
+                    StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
+                    StoredTokens.get_default ().save_tokens ();
                 }
             }
 
@@ -210,7 +222,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 // Our token has probably expired
                 } else {
                     AuthServices.get_default ().update_service_token (request_data.remote, null);
-                    start_api_flow (null);
+                    start_api_flow (_("Session expired. Please log in again"));
                 }
 
                 return null;
@@ -284,7 +296,12 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 }
 
                 response_data["tokens"] = builder.end ();
-                response (FlatpakAuthResponse.OK, response_data);
+
+                Idle.add (() => {
+                    response (FlatpakAuthResponse.OK, response_data);
+
+                    return false;
+                });
             }
         }
 
@@ -296,26 +313,41 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 return;
             }
 
+            request_data.denied_tokens.remove_at (0);
+
             var root = json.get_object ();
-            var start_uri = root.get_string_member ("start_uri");
-            request_data.webflow = Webflow.start (this, request_data.sender, request_data.uri, start_uri, (query, error) => {
-                var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
-                if (error != null) {
-                    debug ("webflow complete with errors");
 
-                    if (error is IOError.CANCELLED) {
-                        response (FlatpakAuthResponse.CANCELLED, response_data);
-                    } else {
-                        response_data["error-message"] = error.message;
-                        response (FlatpakAuthResponse.ERROR, response_data);
+            if (root.has_member ("shortTokens")) {
+                var tokens_dict = root.get_object_member ("shortTokens");
+                var members = tokens_dict.get_members ();
+                foreach (var id in members) {
+                    var member = tokens_dict.get_member (id);
+                    var token = member.get_string ();
+                    if (token == null) {
+                        token = "";
                     }
-                } else {
-                    debug ("Purchase succeeded");
 
-                    request_data.denied_tokens.remove_at (0);
-                    get_unresolved_tokens ();
+                    resolve_id (id, token);
                 }
-            });
+            }
+
+            if (root.has_member ("longTokens")) {
+                var tokens_dict = root.get_object_member ("longTokens");
+                var members = tokens_dict.get_members ();
+                foreach (var id in members) {
+                    var member = tokens_dict.get_member (id);
+                    var token = member.get_string ();
+                    if (token == null) {
+                        token = "";
+                    }
+
+                    resolve_id (id, token);
+                    StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
+                    StoredTokens.get_default ().save_tokens ();
+                }
+            }
+
+            get_unresolved_tokens ();
         }
 
         public void close () throws GLib.Error {
