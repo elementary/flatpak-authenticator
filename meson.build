@@ -20,7 +20,6 @@ executable(
     'src/AuthServices.vala',
     'src/StoredTokens.vala',
     'src/Utils.vala',
-    'src/Webflow.vala',
     dependencies: [
         dependency('glib-2.0'),
         dependency('gobject-2.0'),

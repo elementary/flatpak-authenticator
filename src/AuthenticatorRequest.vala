@@ -31,7 +31,6 @@ public class FlatpakAuthenticator.RequestRefTokensData : GLib.Object {
     public string[] refs { get; set; }
 
     public string? token;
-    public Webflow.WebflowData webflow;
 }
 
 public enum FlatpakAuthenticator.FlatpakAuthResponse {
@@ -406,9 +405,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
         public void close () throws GLib.Error {
             debug ("handling request.Close %s", request_data.remote);
 
-            if (request_data.webflow != null) {
-                Webflow.cancel (request_data.webflow);
-            }
+            // TODO: Should probably close any open dialogs here
         }
 
         public signal void webflow (string uri, GLib.HashTable<string, GLib.Variant?> options);
