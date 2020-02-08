@@ -284,16 +284,28 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
                 // TODO: Fetch amount, name, and stripe token
                 var purchase_dialog = new Dialogs.StripeDialog (5, "Prototype", id, "fake_token");
+                purchase_dialog.download_requested.connect (() => {
+                    purchase_dialog.destroy ();
+                    var json = new Json.Object ();
+                    json.set_string_member ("id", id);
+
+                    debug ("Requesting purchase of id: %s", id);
+
+                    var msg = create_api_call (request_data.uri, "api/v1/begin_purchase", request_data.token, json);
+                    soup_session.queue_message (msg, begin_purchase_cb);
+                });
+
                 var response_code = purchase_dialog.run ();
-                purchase_dialog.destroy ();
+                if (response_code == Gtk.ResponseType.NONE) {
+                    var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
+                    Idle.add (() => {
+                        response (FlatpakAuthResponse.CANCELLED, response_data);
+                        return false;
+                    });
 
-                var json = new Json.Object ();
-                json.set_string_member ("id", id);
+                    return;
+                }
 
-                debug ("Requesting purchase of id: %s", id);
-
-                var msg = create_api_call (request_data.uri, "api/v1/begin_purchase", request_data.token, json);
-                soup_session.queue_message (msg, begin_purchase_cb);
             } else {
                 var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
 

@@ -450,9 +450,10 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
             case Gtk.ResponseType.CLOSE:
                 if (layouts.visible_child_name == "error") {
                     download_requested ();
+                } else {
+                    destroy ();
                 }
 
-                destroy ();
                 break;
         }
     }
@@ -497,7 +498,6 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
                     show_error_view (error);
                 } else {
                     download_requested ();
-                    destroy ();
                 }
 
                 return GLib.Source.REMOVE;
