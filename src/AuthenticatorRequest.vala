@@ -282,29 +282,13 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 // Begin purchase
                 var id = request_data.denied_tokens[0];
 
-                // TODO: Fetch amount, name, and stripe token
-                var purchase_dialog = new Dialogs.StripeDialog (5, "Prototype", id, "fake_token");
-                purchase_dialog.download_requested.connect (() => {
-                    purchase_dialog.destroy ();
-                    var json = new Json.Object ();
-                    json.set_string_member ("id", id);
+                var json = new Json.Object ();
+                json.set_string_member ("id", id);
 
-                    debug ("Requesting purchase of id: %s", id);
+                debug ("Requesting details for id: %s", id);
 
-                    var msg = create_api_call (request_data.uri, "api/v1/begin_purchase", request_data.token, json);
-                    soup_session.queue_message (msg, begin_purchase_cb);
-                });
-
-                var response_code = purchase_dialog.run ();
-                if (response_code == Gtk.ResponseType.NONE) {
-                    var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
-                    Idle.add (() => {
-                        response (FlatpakAuthResponse.CANCELLED, response_data);
-                        return false;
-                    });
-
-                    return;
-                }
+                var msg = create_api_call (request_data.uri, "api/v1/get_application", null, json);
+                soup_session.queue_message (msg, app_details_cb);
 
             } else {
                 var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
@@ -321,6 +305,54 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
                     return false;
                 });
+            }
+        }
+
+        private void app_details_cb (Soup.Session session, Soup.Message msg) {
+            debug ("API: Got get_application response, status code=%u", msg.status_code);
+
+            var json = verify_api_call_json_response (msg);
+            if (json == null) {
+                return;
+            }
+
+            var root = json.get_object ();
+
+            if (!root.has_member ("id")) {
+                var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
+                response_data["error-message"] = "Could not find details about app from API";
+                Idle.add (() => {
+                    response (FlatpakAuthResponse.ERROR, response_data);
+                    return false;
+                });
+            }
+
+            var id = root.get_string_member ("id");
+            var stripe_key = root.get_string_member ("stripe_key");
+            var app_name = root.get_string_member ("name");
+            var amount = root.get_int_member ("recommended_amount");
+
+            var purchase_dialog = new Dialogs.StripeDialog ((int)amount, app_name, id, stripe_key);
+            purchase_dialog.download_requested.connect (() => {
+                purchase_dialog.destroy ();
+                var request = new Json.Object ();
+                request.set_string_member ("id", id);
+
+                debug ("Requesting purchase of id: %s", id);
+
+                var request_msg = create_api_call (request_data.uri, "api/v1/begin_purchase", request_data.token, request);
+                soup_session.queue_message (request_msg, begin_purchase_cb);
+            });
+
+            var response_code = purchase_dialog.run ();
+            if (response_code == Gtk.ResponseType.NONE) {
+                var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
+                Idle.add (() => {
+                    response (FlatpakAuthResponse.CANCELLED, response_data);
+                    return false;
+                });
+
+                return;
             }
         }
 
