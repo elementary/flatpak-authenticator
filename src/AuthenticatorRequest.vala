@@ -344,15 +344,21 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 soup_session.queue_message (request_msg, begin_purchase_cb);
             });
 
-            var response_code = purchase_dialog.run ();
-            if (response_code == Gtk.ResponseType.NONE) {
+            purchase_dialog.cancelled.connect (() => {
                 var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
                 Idle.add (() => {
                     response (FlatpakAuthResponse.CANCELLED, response_data);
                     return false;
                 });
+            });
 
-                return;
+            var response_code = purchase_dialog.run ();
+            if (response_code == Gtk.ResponseType.NONE || response_code == Gtk.ResponseType.DELETE_EVENT) {
+                var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
+                Idle.add (() => {
+                    response (FlatpakAuthResponse.CANCELLED, response_data);
+                    return false;
+                });
             }
         }
 

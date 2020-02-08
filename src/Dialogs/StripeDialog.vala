@@ -19,6 +19,7 @@
 
 public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
     public signal void download_requested ();
+    public signal void cancelled ();
 
     private const string HOUSTON_URI = "https://developer.elementary.io/api/payment/%s";
     private const string HOUSTON_PAYLOAD = "{ "
@@ -451,6 +452,7 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
                 if (layouts.visible_child_name == "error") {
                     download_requested ();
                 } else {
+                    cancelled ();
                     destroy ();
                 }
 
