@@ -77,6 +77,14 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             }
         }
 
+        private void cancel_request () {
+            var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
+            Idle.add (() => {
+                response (FlatpakAuthResponse.CANCELLED, response_data);
+                return false;
+            });
+        }
+
         private void start_api_flow (string? error = null) {
             var auth_services = AuthServices.get_default ();
             request_data.token = auth_services.lookup_service_token (request_data.remote);
@@ -88,11 +96,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 login_dialog.destroy ();
 
                 if (response_code == Gtk.ResponseType.CANCEL) {
-                    var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
-                    Idle.add (() => {
-                        response (FlatpakAuthResponse.CANCELLED, response_data);
-                        return false;
-                    });
+                    cancel_request ();
                 }
             } else {
                 get_unresolved_tokens ();
@@ -345,20 +349,12 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             });
 
             purchase_dialog.cancelled.connect (() => {
-                var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
-                Idle.add (() => {
-                    response (FlatpakAuthResponse.CANCELLED, response_data);
-                    return false;
-                });
+                cancel_request ();
             });
 
             var response_code = purchase_dialog.run ();
             if (response_code == Gtk.ResponseType.NONE || response_code == Gtk.ResponseType.DELETE_EVENT) {
-                var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
-                Idle.add (() => {
-                    response (FlatpakAuthResponse.CANCELLED, response_data);
-                    return false;
-                });
+                cancel_request ();
             }
         }
 
