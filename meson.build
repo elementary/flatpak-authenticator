@@ -10,11 +10,14 @@ add_global_arguments('-DGETTEXT_PACKAGE="@0@"'.format(meson.project_name()), lan
 
 executable(
     meson.project_name(),
+    'src/Dialogs/LoginDialog.vala',
+    'src/Dialogs/StripeDialog.vala',
+    'src/Widgets/CardNumberEntry.vala',
+    'src/Widgets/PaymentMethodButton.vala',
     'src/Application.vala',
     'src/AuthenticatorRequest.vala',
     'src/Authenticator.vala',
     'src/AuthServices.vala',
-    'src/LoginDialog.vala',
     'src/StoredTokens.vala',
     'src/Utils.vala',
     'src/Webflow.vala',

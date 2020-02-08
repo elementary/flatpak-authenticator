@@ -281,6 +281,12 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             if (request_data.denied_tokens.size > 0) {
                 // Begin purchase
                 var id = request_data.denied_tokens[0];
+
+                // TODO: Fetch amount, name, and stripe token
+                var purchase_dialog = new Dialogs.StripeDialog (5, "Prototype", id, "fake_token");
+                var response_code = purchase_dialog.run ();
+                purchase_dialog.destroy ();
+
                 var json = new Json.Object ();
                 json.set_string_member ("id", id);
 
