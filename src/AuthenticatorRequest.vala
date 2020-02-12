@@ -335,16 +335,16 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             var app_name = root.get_string_member ("name");
             var amount = root.get_int_member ("recommended_amount");
 
-            var purchase_dialog = new Dialogs.StripeDialog ((int)amount, app_name, id, stripe_key);
-            purchase_dialog.download_requested.connect (() => {
+            var purchase_dialog = new Dialogs.StripeDialog ((int)amount, app_name, id, stripe_key, request_data.token);
+            purchase_dialog.download_requested.connect ((token, store) => {
                 purchase_dialog.destroy ();
-                var request = new Json.Object ();
-                request.set_string_member ("id", id);
 
-                debug ("Requesting purchase of id: %s", id);
+                resolve_id (id, token);
+                StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
+                StoredTokens.get_default ().save_tokens ();
 
-                var request_msg = create_api_call (request_data.uri, "api/v1/begin_purchase", request_data.token, request);
-                soup_session.queue_message (request_msg, begin_purchase_cb);
+                request_data.denied_tokens.remove_at (0);
+                get_unresolved_tokens ();
             });
 
             purchase_dialog.cancelled.connect (() => {
@@ -355,51 +355,6 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             if (response_code == Gtk.ResponseType.NONE || response_code == Gtk.ResponseType.DELETE_EVENT) {
                 cancel_request ();
             }
-        }
-
-        private void begin_purchase_cb (Soup.Session session, Soup.Message msg) {
-            debug ("API: Got begin_purchase response, status code=%u", msg.status_code);
-
-            var json = verify_api_call_json_response (msg);
-            if (json == null) {
-                return;
-            }
-
-            request_data.denied_tokens.remove_at (0);
-
-            var root = json.get_object ();
-
-            if (root.has_member ("shortTokens")) {
-                var tokens_dict = root.get_object_member ("shortTokens");
-                var members = tokens_dict.get_members ();
-                foreach (var id in members) {
-                    var member = tokens_dict.get_member (id);
-                    var token = member.get_string ();
-                    if (token == null) {
-                        token = "";
-                    }
-
-                    resolve_id (id, token);
-                }
-            }
-
-            if (root.has_member ("longTokens")) {
-                var tokens_dict = root.get_object_member ("longTokens");
-                var members = tokens_dict.get_members ();
-                foreach (var id in members) {
-                    var member = tokens_dict.get_member (id);
-                    var token = member.get_string ();
-                    if (token == null) {
-                        token = "";
-                    }
-
-                    resolve_id (id, token);
-                    StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
-                    StoredTokens.get_default ().save_tokens ();
-                }
-            }
-
-            get_unresolved_tokens ();
         }
 
         public void close () throws GLib.Error {

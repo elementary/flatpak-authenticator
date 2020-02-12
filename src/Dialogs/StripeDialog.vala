@@ -18,18 +18,18 @@
 */
 
 public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
-    public signal void download_requested ();
+    public signal void download_requested (string token, bool store);
     public signal void cancelled ();
 
-    private const string HOUSTON_URI = "https://developer.elementary.io/api/payment/%s";
+    private const string HOUSTON_URI = "http://localhost:5000/api/v1/begin_purchase";
     private const string HOUSTON_PAYLOAD = "{ "
-                                + "\"data\": {"
+                                    + "\"app_id\": \"%s\","
                                     + "\"key\": \"%s\","
                                     + "\"token\": \"%s\","
                                     + "\"email\": \"%s\","
                                     + "\"amount\": %s,"
                                     + "\"currency\": \"USD\""
-                                + "}}";
+                                + "}";
     private const string USER_AGENT = "elementary AppCenter";
     private const string STRIPE_URI = "https://api.stripe.com/v1/tokens";
     private const string STRIPE_AUTH = "Bearer %s";
@@ -62,13 +62,17 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
     public string app_name { get; construct set; }
     public string app_id { get; construct set; }
     public string stripe_key { get; construct set; }
+    public string? bearer_token { get; construct set; }
 
     private bool email_valid = false;
     private bool card_valid = false;
     private bool expiration_valid = false;
     private bool cvc_valid = false;
 
-    public StripeDialog (int _amount, string _app_name, string _app_id, string _stripe_key) {
+    private string? returned_token = null;
+    private bool store_token = false;
+
+    public StripeDialog (int _amount, string _app_name, string _app_id, string _stripe_key, string? _bearer_token) {
         Object (
             amount: _amount,
             app_name: _app_name,
@@ -76,6 +80,7 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
             deletable: false,
             resizable: false,
             stripe_key: _stripe_key,
+            bearer_token: _bearer_token,
             title: _("Payment")
         );
     }
@@ -361,7 +366,9 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
         }
 
         layouts.set_visible_child_name ("error");
-        cancel_button.label = _("Pay Later");
+        if (returned_token != null) {
+            cancel_button.label = _("Pay Later");
+        }
         pay_button.label = _("Retry");
 
         cancel_button.sensitive = true;
@@ -449,8 +456,8 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
                 }
                 break;
             case Gtk.ResponseType.CLOSE:
-                if (layouts.visible_child_name == "error") {
-                    download_requested ();
+                if (layouts.visible_child_name == "error" && returned_token != null) {
+                    download_requested (returned_token, false);
                 } else {
                     cancelled ();
                     destroy ();
@@ -482,6 +489,14 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
                         if (root_object.has_member ("errors")) {
                             error = _(DEFAULT_ERROR_MESSAGE);
                         }
+
+                        if (root_object.has_member ("token")) {
+                            returned_token = root_object.get_string_member ("token");
+                        }
+
+                        if (root_object.has_member ("store")) {
+                            store_token = root_object.get_boolean_member ("store");
+                        }
                     } else {
                         error = _(DEFAULT_ERROR_MESSAGE);
                     }
@@ -499,7 +514,7 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
                 if (error != null) {
                     show_error_view (error);
                 } else {
-                    download_requested ();
+                    download_requested (returned_token, store_token);
                 }
 
                 return GLib.Source.REMOVE;
@@ -538,14 +553,16 @@ public class FlatpakAuthenticator.Dialogs.StripeDialog : Gtk.Dialog {
     }
 
     private string post_to_houston (string _app_key, string _app_id, string _purchase_token, string _email, string _amount) {
-        var session = new Soup.Session ();
-        var message = new Soup.Message ("POST", HOUSTON_URI.printf (_app_id));
+        var session = Utils.create_soup_session ("io.elementary.FlatpakAuthenticator");
+        var message = new Soup.Message ("POST", HOUSTON_URI);
 
-        message.request_headers.append ("Accepts", "application/vnd.api+json");
-        message.request_headers.append ("Content-Type", "application/vnd.api+json");
+        var payload = HOUSTON_PAYLOAD.printf (_app_id, _app_key, _purchase_token, _email, _amount);
+        message.set_request ("application/json", Soup.MemoryUse.COPY, payload.data);
 
-        var payload = HOUSTON_PAYLOAD.printf (_app_key, _purchase_token, _email, _amount);
-        message.request_body.append_take (payload.data);
+        if (bearer_token != null) {
+            var bearer = "Bearer %s".printf (bearer_token);
+            message.request_headers.append ("Authorization", bearer);
+        }
 
         session.send_message (message);
 
