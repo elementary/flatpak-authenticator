@@ -6,6 +6,16 @@
     "command": "io.elementary.flatpak-authenticator",
     "modules": [
         {
+            "name": "granite",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/elementary/granite.git"
+                }
+            ]
+        },
+        {
             "name": "flatpak-authenticator",
             "buildsystem": "meson",
             "sources": [
