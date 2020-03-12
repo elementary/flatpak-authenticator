@@ -21,7 +21,6 @@ executable(
         dependency('gobject-2.0'),
         dependency('gio-2.0'),
         dependency('gee-0.8'),
-        dependency('dbus-glib-1'),
         dependency('gtk+-3.0'),
         dependency('libsoup-2.4'),
         dependency('json-glib-1.0')

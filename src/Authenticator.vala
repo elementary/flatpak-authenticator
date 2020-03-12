@@ -35,7 +35,7 @@ public class FlatpakAuthenticator.Authenticator : GLib.Object {
     public Authenticator () {
     }
 
-    public DBus.ObjectPath request_ref_tokens (
+    public GLib.ObjectPath request_ref_tokens (
         string handle_token,
         GLib.HashTable<string, GLib.Variant?> authenticator_options,
         string remote,
@@ -50,18 +50,18 @@ public class FlatpakAuthenticator.Authenticator : GLib.Object {
         GLib.Variant uri_variant;
         string orig_key;
         if (!authenticator_options.lookup_extended ("url", out orig_key, out uri_variant)) {
-            throw new DBus.Error.INVALID_ARGS ("No url specified");
+            throw new GLib.DBusError.INVALID_ARGS ("No url specified");
         }
 
         var uri = uri_variant.get_string ();
 
         string request_path = Utils.create_request_path (sender, handle_token);
         if (request_path == null) {
-            throw new DBus.Error.INVALID_ARGS ("Unable to construct request path");
+            throw new GLib.DBusError.INVALID_ARGS ("Unable to construct request path");
         }
 
         if (connection == null) {
-            throw new DBus.Error.FAILED ("DBus connection not available");
+            throw new GLib.DBusError.FAILED ("DBus connection not available");
         }
 
         var n_refs = refs.length;
@@ -89,7 +89,7 @@ public class FlatpakAuthenticator.Authenticator : GLib.Object {
         var request = new AuthenticatorRequest (data);
         connection.register_object (request_path, request);
 
-        return new DBus.ObjectPath (request_path);
+        return new GLib.ObjectPath (request_path);
     }
 
     [DBus (visible = false)]
