@@ -1,0 +1,19 @@
+{
+    "app-id": "io.elementary.flatpak-authenticator",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "3.36",
+    "sdk": "org.gnome.Sdk",
+    "command": "io.elementary.flatpak-authenticator",
+    "modules": [
+        {
+            "name": "flatpak-authenticator",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "git",
+                    "path": "../"
+                }
+            ]
+        }
+    ]
+}
