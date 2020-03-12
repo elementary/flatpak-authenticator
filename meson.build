@@ -29,6 +29,7 @@ executable(
         dependency('libsoup-2.4'),
         dependency('json-glib-1.0'),
         dependency('granite')
-    ]
+    ],
+    install: true
 )
 
