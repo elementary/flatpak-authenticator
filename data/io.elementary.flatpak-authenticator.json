@@ -4,6 +4,13 @@
     "runtime-version": "3.36",
     "sdk": "org.gnome.Sdk",
     "command": "io.elementary.flatpak-authenticator",
+    "finish-args" : [
+        "--device=dri",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=wayland",
+        "--socket=session-bus"
+    ],
     "modules": [
         {
             "name": "granite",
@@ -11,7 +18,70 @@
             "sources": [
                 {
                     "type": "git",
-                    "url": "https://github.com/elementary/granite.git"
+                    "url": "https://github.com/elementary/granite.git",
+                    "tag": "5.3.0"
+                }
+            ]
+        },
+        {
+            "name": "libcheck",
+            "buildsystem": "cmake",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/libcheck/check.git",
+                    "tag": "0.14.0"
+                }
+            ]
+        },
+        {
+            "name": "libaccounts-glib",
+            "buildsystem": "meson",
+            "config-opts" : [
+                "-Dpy-overrides-dir=/app/lib/python3.7/site-packages/gi/overrides/"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.com/accounts-sso/libaccounts-glib.git"
+                }
+            ]
+        },
+        {
+            "name": "gsignond",
+            "buildsystem": "meson",
+            "config-opts" : [
+                "-Dextension=desktop"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.com/accounts-sso/gsignond.git",
+                    "tag": "1.2.0"
+                }
+            ]
+        },
+        {
+            "name": "gsignond-plugin-oa",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.com/accounts-sso/gsignond-plugin-oa.git"
+                }
+            ]
+        },
+        {
+            "name": "libsignon-glib",
+            "buildsystem": "meson",
+            "config-opts" : [
+                "-Dpy-overrides-dir=/app/lib/python3.7/site-packages/gi/overrides/"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://gitlab.com/accounts-sso/libsignon-glib.git",
+                    "tag": "VERSION_2.1"
                 }
             ]
         },
@@ -20,7 +90,7 @@
             "buildsystem": "meson",
             "sources": [
                 {
-                    "type": "git",
+                    "type": "dir",
                     "path": "../"
                 }
             ]
