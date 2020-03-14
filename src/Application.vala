@@ -48,7 +48,27 @@ public class FlatpakAuthenticator.Application : Gtk.Application {
             quit ();
         });
 
+        var manager = new Ag.Manager ();
+        var accounts = manager.list ();
+        foreach (var id in accounts) {
+            get_account_data (manager.get_account (id));
+        }
+
         hold ();
+    }
+
+    public async void get_account_data (Ag.Account account) {
+        var account_service = new Ag.AccountService (account, null);
+        var auth_data = account_service.get_auth_data ();
+        var identity = new Signon.Identity.from_db (auth_data.get_credentials_id ());
+        try {
+            var info = yield identity.query_info (null);
+            var methods = info.get_methods ();
+        } catch (Error e) {
+            critical (e.message);
+        }
+        /*var session = yield identity.create_session (string method);
+        async Variant process (Variant session_data, string mechanism, Cancellable? cancellable)*/
     }
 
     public static int main (string[] args) {

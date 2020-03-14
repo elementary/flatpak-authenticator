@@ -7,9 +7,14 @@
     "finish-args" : [
         "--device=dri",
         "--share=ipc",
+        "--socket=x11",
         "--socket=fallback-x11",
         "--socket=wayland",
-        "--socket=session-bus"
+        "--talk-name=com.google.code.AccountsSSO.SingleSignOn",
+        "--share=network",
+        "--own-name=io.elementary.flatpak_authenticator",
+        "--own-name=io.elementary.FlatpakAuthenticator",
+        "--filesystem=xdg-config/libaccounts-glib"
     ],
     "modules": [
         {
