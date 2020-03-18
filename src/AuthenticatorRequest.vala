@@ -41,12 +41,11 @@ public enum FlatpakAuthenticator.FlatpakAuthResponse {
 
 [DBus (name = "org.freedesktop.Flatpak.AuthenticatorRequest")]
 public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
-        private const string LOGIN_ENDPOINT = "/login";
-
         [DBus (visible = false)]
         public RequestRefTokensData request_data { get; construct; }
 
         private Soup.Session soup_session;
+        private ElementaryAccount.AccountManager elementary_account;
 
         public AuthenticatorRequest (RequestRefTokensData data) {
             Object (request_data: data);
@@ -54,6 +53,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
         construct {
             soup_session = Utils.create_soup_session ("io.elementary.flatpak-authenticator");
+            elementary_account = new ElementaryAccount.AccountManager ();
 
             var stored_tokens = StoredTokens.get_default ();
             var found_tokens = new Gee.HashMap<string, string> ();
@@ -72,7 +72,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             if (request_data.unresolved_tokens.size == 0) {
                 check_done ();
             } else {
-                start_api_flow ();
+                start_api_flow.begin ();
             }
         }
 
@@ -84,47 +84,14 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             });
         }
 
-        private void start_api_flow (string? error = null) {
-            var auth_services = AuthServices.get_default ();
-            request_data.token = auth_services.lookup_service_token (request_data.remote);
-            if (request_data.token == null) {
-                var login_dialog = new LoginDialog (error);
-                login_dialog.login.connect (on_login);
-                login_dialog.skip.connect (get_unresolved_tokens);
-                var response_code = login_dialog.run ();
-                login_dialog.destroy ();
+        private async void start_api_flow (string? error = null) {
+            var logged_in = yield elementary_account.check_authenticated ();
 
-                if (response_code == Gtk.ResponseType.CANCEL) {
-                    cancel_request ();
-                }
+            if (!logged_in) {
+                var login_dialog = new LoginDialog (elementary_account);
+                login_dialog.run ();
+                login_dialog.finished.connect (get_unresolved_tokens);
             } else {
-                get_unresolved_tokens ();
-            }
-        }
-
-        private void on_login (string username, string password) {
-            var json = new Json.Object ();
-            json.set_string_member ("username", username);
-            json.set_string_member ("password", password);
-
-            var msg = create_api_call (request_data.uri, LOGIN_ENDPOINT, null, json);
-            soup_session.queue_message (msg, login_cb);
-        }
-
-        private void login_cb (Soup.Session session, Soup.Message message) {
-            debug ("Login uri: %s", message.uri.to_string (false));
-            debug ("API: got login response, status code=%u", message.status_code);
-
-            var json = verify_api_call_json_response (message);
-            if (json == null) {
-                return;
-            }
-
-            var root = json.get_object ();
-            if (root.has_member ("access_token")) {
-                var token = root.get_string_member ("access_token");
-                AuthServices.get_default ().update_service_token (request_data.remote, token);
-
                 get_unresolved_tokens ();
             }
         }
@@ -219,18 +186,6 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
         private Json.Node? verify_api_call_json_response (Soup.Message msg) {
             var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
-
-            if (msg.status_code == 401) {
-                if (msg.uri.get_path () == LOGIN_ENDPOINT) {
-                    start_api_flow (_("Incorrect credentials. Please try again."));
-                // Our token has probably expired
-                } else {
-                    AuthServices.get_default ().update_service_token (request_data.remote, null);
-                    start_api_flow (_("Session expired. Please log in again"));
-                }
-
-                return null;
-            }
 
             if (msg.status_code != 200) {
                 response_data["error-message"] = "API call failed, service returned status %u".printf (msg.status_code);

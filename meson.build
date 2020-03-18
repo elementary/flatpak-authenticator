@@ -17,7 +17,6 @@ executable(
     'src/Application.vala',
     'src/AuthenticatorRequest.vala',
     'src/Authenticator.vala',
-    'src/AuthServices.vala',
     'src/StoredTokens.vala',
     'src/Utils.vala',
     dependencies: [
@@ -30,7 +29,8 @@ executable(
         dependency('json-glib-1.0'),
         dependency('granite'),
         dependency('libaccounts-glib'),
-        dependency('libsignon-glib')
+        dependency('libsignon-glib'),
+        dependency('elementary-account')
     ],
     install: true
 )

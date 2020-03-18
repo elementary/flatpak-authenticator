@@ -20,114 +20,48 @@
 */
 
 public class FlatpakAuthenticator.LoginDialog : Gtk.Dialog {
-    private Gtk.Button login_button;
-    private Gtk.Entry username_entry;
-    private Gtk.Entry password_entry;
 
     public string? error_message { get; construct; }
+    public ElementaryAccount.AccountManager account { get; construct; }
 
-    public signal void login (string username, string password);
-    public signal void skip ();
+    public signal void finished ();
 
-    public LoginDialog (string? error_message) {
-        Object (error_message: error_message);
+    private string verifier;
+
+    public LoginDialog (ElementaryAccount.AccountManager account) {
+        Object (account: account);
     }
 
     construct {
-        var image = new Gtk.Image.from_icon_name ("preferences-desktop-online-accounts", Gtk.IconSize.DIALOG);
-        image.valign = Gtk.Align.START;
+        var webview = new ElementaryAccount.NativeWebView ();
 
-        var primary_label = new Gtk.Label (_("Login to elementary account"));
-        primary_label.get_style_context ().add_class (Granite.STYLE_CLASS_PRIMARY_LABEL);
-        primary_label.xalign = 0;
+        verifier = ElementaryAccount.Utils.base64_url_encode (ElementaryAccount.Utils.generate_random_bytes (32));
+        var challenge = ElementaryAccount.Utils.base64_url_encode (ElementaryAccount.Utils.sha256 (verifier.data));
 
-        var secondary_label = new Gtk.Label (_("Applications you purchase will be stored in your account"));
-        secondary_label.margin_bottom = 18;
-        secondary_label.max_width_chars = 50;
-        secondary_label.wrap = true;
-        secondary_label.xalign = 0;
+        var constructed_uri = new Soup.URI (ElementaryAccount.Utils.get_api_uri ("/oauth/authorize"));
+        constructed_uri.set_query_from_fields (
+            "client_id", ElementaryAccount.Constants.CLIENT_ID,
+            "scope", "profile",
+            "response_type", "code",
+            "redirect_uri", "urn:ietf:wg:oauth:2.0:oob",
+            "code_challenge", challenge,
+            "code_challenge_method", "S256"
+        );
 
-        var error_label = new Gtk.Label (error_message);
-        error_label.margin_bottom = 18;
-        error_label.max_width_chars = 50;
-        error_label.wrap = true;
-        error_label.xalign = 0;
-        error_label.get_style_context ().add_class (Gtk.STYLE_CLASS_ERROR);
+        webview.load_uri (constructed_uri.to_string (false));
+        webview.success.connect (on_code_received);
 
-        username_entry = new Gtk.Entry ();
-        username_entry.activates_default = true;
-        username_entry.hexpand = true;
-        username_entry.placeholder_text = _("Username");
-        username_entry.primary_icon_name = "system-users-symbolic";
-
-        password_entry = new Gtk.Entry ();
-        password_entry.activates_default = true;
-        password_entry.hexpand = true;
-        password_entry.visibility = false;
-        password_entry.placeholder_text = _("Password");
-        password_entry.primary_icon_name = "dialog-password-symbolic";
-
-        var card_grid = new Gtk.Grid ();
-        card_grid.get_style_context ().add_class (Gtk.STYLE_CLASS_LINKED);
-        card_grid.orientation = Gtk.Orientation.VERTICAL;
-        card_grid.add (username_entry);
-        card_grid.add (password_entry);
-
-        var card_layout = new Gtk.Grid ();
-        card_layout.get_style_context ().add_class ("login");
-        card_layout.column_spacing = 12;
-        card_layout.row_spacing = 6;
-        card_layout.margin = 10;
-        card_layout.margin_top = 0;
-        card_layout.attach (image, 0, 0, 1, 2);
-        card_layout.attach (primary_label, 1, 0);
-        card_layout.attach (secondary_label, 1, 1);
-        if (error_message != null) {
-            secondary_label.margin_bottom = 6;
-            card_layout.attach (error_label, 1, 2);
-            card_layout.attach (card_grid, 1, 3);
-        } else {
-            card_layout.attach (card_grid, 1, 2);
-        }
-
-        card_layout.show_all ();
-
-        get_content_area ().add (card_layout);
+        get_content_area ().add (webview);
 
         get_action_area ().margin = 5;
 
-        add_button (_("Cancel"), Gtk.ResponseType.CANCEL);
-        add_button (_("Skip"), Gtk.ResponseType.REJECT);
-
-        login_button = (Gtk.Button) add_button (_("Login"), Gtk.ResponseType.APPLY);
-        login_button.get_style_context ().add_class (Gtk.STYLE_CLASS_SUGGESTED_ACTION);
-        login_button.has_default = true;
-        login_button.sensitive = false;
-
-        deletable = false;
-        resizable = false;
-
-        username_entry.changed.connect (() => {
-            validate_form ();
-        });
-
-        password_entry.changed.connect (() => {
-            validate_form ();
-        });
-
-        response.connect ((response_id) => {
-            if (response_id == Gtk.ResponseType.APPLY) {
-                login (username_entry.text, password_entry.text);
-            }
-
-            if (response_id == Gtk.ResponseType.REJECT) {
-                skip ();
-            }
-        });
+        show_all ();
     }
 
-    private void validate_form () {
-        login_button.sensitive = username_entry.text.length > 0 && password_entry.text.length > 0;
+    private void on_code_received (string code) {
+        account.exchange_code_for_token (ElementaryAccount.Utils.get_api_uri ("/oauth/token"), code, verifier);
+
+        finished ();
     }
 }
 

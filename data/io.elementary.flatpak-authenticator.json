@@ -11,6 +11,7 @@
         "--socket=fallback-x11",
         "--socket=wayland",
         "--talk-name=com.google.code.AccountsSSO.SingleSignOn",
+        "--talk-name=org.freedesktop.secrets",
         "--share=network",
         "--own-name=io.elementary.flatpak_authenticator",
         "--own-name=io.elementary.FlatpakAuthenticator",
@@ -87,6 +88,17 @@
                     "type": "git",
                     "url": "https://gitlab.com/accounts-sso/libsignon-glib.git",
                     "tag": "VERSION_2.1"
+                }
+            ]
+        },
+        {
+            "name": "libelementary-account",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/davidmhewitt/libelementary-account.git",
+                    "branch": "master"
                 }
             ]
         },
