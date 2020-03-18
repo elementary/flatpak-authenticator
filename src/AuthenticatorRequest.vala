@@ -103,36 +103,11 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 return;
             }
 
-            var ids_str = "";
-
-            var json = new Json.Object ();
-            var ids_array = new Json.Array ();
-
-            json.set_array_member ("ids", ids_array);
-
-            foreach (var token in request_data.unresolved_tokens) {
-                ids_array.add_string_element (token);
-                if (ids_str.length > 0) {
-                    ids_str += ", ";
-                }
-
-                ids_str += token;
-            }
-
-            debug ("API: Requesting tokens for ids: %s", ids_str);
-
-            var msg = create_api_call (request_data.uri, "api/v1/get_tokens", request_data.token, json);
-            soup_session.queue_message (msg, get_tokens_cb);
+            var apps = elementary_account.get_purchased_apps (request_data.unresolved_tokens.to_array ());
+            get_tokens_cb (apps);
         }
 
-        private void get_tokens_cb (Soup.Session session, Soup.Message message) {
-            debug ("API: got tokens response, status code=%u", message.status_code);
-
-            var json = verify_api_call_json_response (message);
-            if (json == null) {
-                return;
-            }
-
+        private void get_tokens_cb (Json.Node json) {
             var root = json.get_object ();
 
             if (root.has_member ("tokens")) {
@@ -159,7 +134,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                     var denied_id = denied_array.get_string_element (i);
                     request_data.denied_tokens.add (denied_id);
 
-                    debug ("Added denied_token %s", denied_id);
+                    warning ("Added denied_token %s", denied_id);
                 }
             }
 
@@ -214,24 +189,6 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             return json;
         }
 
-        private Soup.Message create_api_call (Soup.URI base_uri, string api_path, string? token, Json.Object json) {
-            var root = new Json.Node.alloc ();
-            root.init_object (json);
-            var body = Json.to_string (root, false);
-
-            var api_url = new Soup.URI.with_base (base_uri, api_path);
-
-            var msg = new Soup.Message.from_uri ("POST", api_url);
-            msg.set_request ("application/json", Soup.MemoryUse.COPY, body.data);
-
-            if (token != null) {
-                var bearer = "Bearer %s".printf (token);
-                msg.request_headers.append ("Authorization", bearer);
-            }
-
-            return msg;
-        }
-
         private void check_done () {
             debug ("denied_tokens %d", request_data.denied_tokens.size);
             debug ("unresolved_tokens %d", request_data.unresolved_tokens.size);
@@ -245,7 +202,9 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
                 debug ("Requesting details for id: %s", id);
 
-                var msg = create_api_call (request_data.uri, "api/v1/get_application", null, json);
+                var api_url = new Soup.URI.with_base (request_data.uri, "api/v1/app/%s".printf (id));
+                var msg = new Soup.Message.from_uri ("GET", api_url);
+
                 soup_session.queue_message (msg, app_details_cb);
 
             } else {
