@@ -29,8 +29,6 @@ public class FlatpakAuthenticator.RequestRefTokensData : GLib.Object {
     public Gee.ArrayList<string> denied_tokens { get; set; }
     public int[] token_types;
     public string[] refs { get; set; }
-
-    public string? token;
 }
 
 public enum FlatpakAuthenticator.FlatpakAuthResponse {
@@ -84,7 +82,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             });
         }
 
-        private async void start_api_flow (string? error = null) {
+        private async void start_api_flow () {
             var logged_in = yield elementary_account.check_authenticated ();
 
             if (!logged_in) {
@@ -190,8 +188,8 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
         }
 
         private void check_done () {
-            debug ("denied_tokens %d", request_data.denied_tokens.size);
-            debug ("unresolved_tokens %d", request_data.unresolved_tokens.size);
+            warning ("denied_tokens %d", request_data.denied_tokens.size);
+            warning ("unresolved_tokens %d", request_data.unresolved_tokens.size);
 
             if (request_data.denied_tokens.size > 0) {
                 // Begin purchase
@@ -200,9 +198,10 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 var json = new Json.Object ();
                 json.set_string_member ("id", id);
 
-                debug ("Requesting details for id: %s", id);
+                warning ("Requesting details for id: %s", id);
 
                 var api_url = new Soup.URI.with_base (request_data.uri, "api/v1/app/%s".printf (id));
+                warning (api_url.to_string (false));
                 var msg = new Soup.Message.from_uri ("GET", api_url);
 
                 soup_session.queue_message (msg, app_details_cb);
@@ -226,7 +225,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
         }
 
         private void app_details_cb (Soup.Session session, Soup.Message msg) {
-            debug ("API: Got get_application response, status code=%u", msg.status_code);
+            warning ("API: Got get_application response, status code=%u", msg.status_code);
 
             var json = verify_api_call_json_response (msg);
             if (json == null) {
@@ -249,7 +248,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             var app_name = root.get_string_member ("name");
             var amount = root.get_int_member ("recommended_amount");
 
-            var purchase_dialog = new Dialogs.StripeDialog ((int)amount, app_name, id, stripe_key, request_data.token);
+            var purchase_dialog = new Dialogs.PurchaseDialog (elementary_account, (int)amount, app_name, id, stripe_key);
             purchase_dialog.download_requested.connect ((token, store) => {
                 purchase_dialog.destroy ();
 
@@ -272,7 +271,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
         }
 
         public void close () throws GLib.Error {
-            debug ("handling request.Close %s", request_data.remote);
+            warning ("handling request.Close %s", request_data.remote);
 
             // TODO: Should probably close any open dialogs here
         }

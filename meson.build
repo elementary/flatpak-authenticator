@@ -11,7 +11,7 @@ add_global_arguments('-DGETTEXT_PACKAGE="@0@"'.format(meson.project_name()), lan
 executable(
     meson.project_name(),
     'src/Dialogs/LoginDialog.vala',
-    'src/Dialogs/StripeDialog.vala',
+    'src/Dialogs/PurchaseDialog.vala',
     'src/Widgets/CardNumberEntry.vala',
     'src/Widgets/PaymentMethodButton.vala',
     'src/Application.vala',
@@ -28,8 +28,6 @@ executable(
         dependency('libsoup-2.4'),
         dependency('json-glib-1.0'),
         dependency('granite'),
-        dependency('libaccounts-glib'),
-        dependency('libsignon-glib'),
         dependency('elementary-account')
     ],
     install: true
