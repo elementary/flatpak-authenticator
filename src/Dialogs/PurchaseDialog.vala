@@ -24,12 +24,7 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
     private Gtk.Grid? processing_layout = null;
     private Gtk.Stack layouts;
 
-    private AppCenter.Widgets.PaymentMethodButton existing_payment_method;
-    private AppCenter.Widgets.PaymentMethodButton another_existing_payment_method;
     private AppCenter.Widgets.PaymentMethodButton new_payment_method;
-    private AppCenter.Widgets.CardNumberEntry card_number_entry;
-    private Gtk.Entry card_expiration_entry;
-    private Gtk.Entry card_cvc_entry;
     private Gtk.Button pay_button;
     private Gtk.Button cancel_button;
 
@@ -133,32 +128,6 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
         pay_button.sensitive = false;
 
         response.connect (on_response);
-
-        new_payment_method.radio.clicked.connect (() => {
-            if (new_payment_method.radio.active) {
-                card_number_entry.grab_focus ();
-
-                is_payment_sensitive ();
-            }
-        });
-
-        card_number_entry.activate.connect (() => {
-            if (pay_button.sensitive) {
-                pay_button.activate ();
-            }
-        });
-
-        card_expiration_entry.activate.connect (() => {
-            if (pay_button.sensitive) {
-                pay_button.activate ();
-            }
-        });
-
-        card_cvc_entry.activate.connect (() => {
-            if (pay_button.sensitive) {
-                pay_button.activate ();
-            }
-        });
     }
 
     private void show_spinner_view () {
@@ -198,15 +167,6 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
         cancel_button.label = _("Cancel");
 
         layouts.set_visible_child_name ("card");
-        is_payment_sensitive ();
-    }
-
-    private void is_payment_sensitive () {
-        if (email_valid && card_valid && expiration_valid && cvc_valid) {
-            pay_button.sensitive = true;
-        } else {
-            pay_button.sensitive = false;
-        }
     }
 
     private void on_response (Gtk.Dialog source, int response_id) {

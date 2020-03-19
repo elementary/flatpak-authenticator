@@ -12,7 +12,6 @@ executable(
     meson.project_name(),
     'src/Dialogs/LoginDialog.vala',
     'src/Dialogs/PurchaseDialog.vala',
-    'src/Widgets/CardNumberEntry.vala',
     'src/Widgets/PaymentMethodButton.vala',
     'src/Application.vala',
     'src/AuthenticatorRequest.vala',
