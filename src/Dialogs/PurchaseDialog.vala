@@ -18,7 +18,7 @@
 */
 
 public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
-    public signal void download_requested (string token, bool store);
+    public signal void download_requested (int amount);
     public signal void cancelled ();
 
     private Gtk.Grid? payment_layout = null;
@@ -32,8 +32,6 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
     public int amount { get; construct set; }
     public string app_name { get; construct set; }
     public string app_id { get; construct set; }
-
-    private string? returned_token = null;
 
     private ElementaryAccount.Card? selected_payment_method = null;
     private string? anon_id = null;
@@ -139,7 +137,12 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
 
         humble_button.payment_requested.connect ((requested_amount) => {
             amount = requested_amount;
-            show_payment_intent_view ();
+
+            if (amount == 0) {
+                download_requested (0);
+            } else {
+                show_payment_intent_view ();
+            }
         });
 
         (get_action_area () as Gtk.Box).pack_end (humble_button);
@@ -152,9 +155,14 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
             payment_layout = new Gtk.Grid ();
 
             var webview = new ElementaryAccount.NativeWebView ();
+            webview.success.connect (() => {
+                download_requested (amount);
+            });
+
             webview.close.connect (() => {
                 cancel_button.activate ();
             });
+
             webview.height_request = 300;
 
             var payment_uri = new Soup.URI (ElementaryAccount.Utils.get_api_uri ("/intents/do_charge"));

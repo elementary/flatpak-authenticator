@@ -88,52 +88,39 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             if (!logged_in) {
                 var login_dialog = new LoginDialog (elementary_account);
                 login_dialog.run ();
-                login_dialog.finished.connect (get_unresolved_tokens);
+                login_dialog.finished.connect (() => {
+                    get_unresolved_tokens.begin ();
+                });
             } else {
-                get_unresolved_tokens ();
+                get_unresolved_tokens.begin ();
             }
         }
 
-        private void get_unresolved_tokens () {
+        private async void get_unresolved_tokens () {
             if (request_data.unresolved_tokens.size == 0) {
                 check_done ();
 
                 return;
             }
 
-            var apps = elementary_account.get_purchased_apps (request_data.unresolved_tokens.to_array ());
+            var apps = yield elementary_account.get_purchased_apps (request_data.unresolved_tokens.to_array ());
             get_tokens_cb (apps);
         }
 
-        private void get_tokens_cb (Json.Node json) {
-            var root = json.get_object ();
+        private void get_tokens_cb (Gee.HashMap<string, string> tokens) {
+            foreach (var id in tokens.keys) {
+                var token = tokens[id];
 
-            if (root.has_member ("tokens")) {
-                var tokens_dict = root.get_object_member ("tokens");
-                var members = tokens_dict.get_members ();
-                foreach (var id in members) {
-                    var member = tokens_dict.get_member (id);
-                    var token = member.get_string ();
-                    if (token == null) {
-                        token = "";
-                    }
+                resolve_id (id, token);
+                warning ("resolved %s", id);
 
-                    resolve_id (id, token);
-
-                    StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
-                    StoredTokens.get_default ().save_tokens ();
-                }
+                StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
+                StoredTokens.get_default ().save_tokens ();
             }
 
-            if (root.has_member ("denied")) {
-                var denied_array = root.get_array_member ("denied");
-                var len = denied_array.get_length ();
-                for (int i = 0; i < len; i++) {
-                    var denied_id = denied_array.get_string_element (i);
-                    request_data.denied_tokens.add (denied_id);
-
-                    warning ("Added denied_token %s", denied_id);
-                }
+            request_data.denied_tokens.clear ();
+            foreach (var id in request_data.unresolved_tokens) {
+                request_data.denied_tokens.add (id);
             }
 
             check_done ();
@@ -155,6 +142,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             }
 
             request_data.unresolved_tokens.remove (id);
+            request_data.denied_tokens.remove (id);
         }
 
         private Json.Node? verify_api_call_json_response (Soup.Message msg) {
@@ -204,7 +192,9 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
                 warning (api_url.to_string (false));
                 var msg = new Soup.Message.from_uri ("GET", api_url);
 
-                soup_session.queue_message (msg, app_details_cb);
+                soup_session.queue_message (msg, (mess, sess) => {
+                    app_details_cb.begin (mess, sess);
+                });
 
             } else {
                 var response_data = new GLib.HashTable<string, GLib.Variant?> (GLib.str_hash, GLib.str_equal);
@@ -224,7 +214,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             }
         }
 
-        private void app_details_cb (Soup.Session session, Soup.Message msg) {
+        private async void app_details_cb (Soup.Session session, Soup.Message msg) {
             warning ("API: Got get_application response, status code=%u", msg.status_code);
 
             var json = verify_api_call_json_response (msg);
@@ -248,24 +238,30 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             var amount = root.get_int_member ("recommended_amount");
 
             var purchase_dialog = new Dialogs.PurchaseDialog (elementary_account, (int)amount, app_name, id);
-            purchase_dialog.download_requested.connect ((token, store) => {
+            purchase_dialog.download_requested.connect ((amount) => {
+                warning ("purchase succeeded");
+
                 purchase_dialog.destroy ();
 
-                resolve_id (id, token);
-                StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
-                StoredTokens.get_default ().save_tokens ();
-
-                request_data.denied_tokens.remove_at (0);
-                get_unresolved_tokens ();
+                if (amount > 0) {
+                    poll_token.begin (id);
+                }
             });
 
             purchase_dialog.cancelled.connect (() => {
                 cancel_request ();
             });
 
-            var response_code = purchase_dialog.run ();
-            if (response_code == Gtk.ResponseType.NONE || response_code == Gtk.ResponseType.DELETE_EVENT) {
-                cancel_request ();
+            purchase_dialog.run ();
+        }
+
+        private async void poll_token (string id) {
+            var token = yield elementary_account.poll_for_token (id);
+            if (token != null) {
+                resolve_id (id, token);
+                yield get_unresolved_tokens ();
+            } else {
+                yield get_unresolved_tokens ();
             }
         }
 
