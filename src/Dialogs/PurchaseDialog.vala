@@ -21,7 +21,7 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
     public signal void download_requested (string token, bool store);
     public signal void cancelled ();
 
-    private Gtk.Grid? processing_layout = null;
+    private Gtk.Grid? payment_layout = null;
     private Gtk.Stack layouts;
 
     private AppCenter.Widgets.PaymentMethodButton new_payment_method;
@@ -34,12 +34,10 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
     public string app_id { get; construct set; }
     public string stripe_key { get; construct set; }
 
-    private bool email_valid = false;
-    private bool card_valid = false;
-    private bool expiration_valid = false;
-    private bool cvc_valid = false;
-
     private string? returned_token = null;
+
+    private ElementaryAccount.Card? selected_payment_method = null;
+    private string? anon_id = null;
 
     public PurchaseDialog (ElementaryAccount.AccountManager account, int _amount, string _app_name, string _app_id, string _stripe_key) {
         Object (
@@ -79,14 +77,23 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
         var payment_methods = new Gtk.Grid ();
         payment_methods.orientation = Gtk.Orientation.VERTICAL;
 
-        new_payment_method = new AppCenter.Widgets.PaymentMethodButton ("New Payment Method…");
+        new_payment_method = new AppCenter.Widgets.PaymentMethodButton (null, false);
+        new_payment_method.selected.connect ((card) => {
+            selected_payment_method = card;
+        });
 
         if (elementary_account.logged_in) {
             foreach (var card in elementary_account.get_cards ()) {
-                var method = new AppCenter.Widgets.PaymentMethodButton ("%s %s".printf (card.title_case_brand, card.last_four), "payment-card-%s".printf (card.brand), true);
+                var method = new AppCenter.Widgets.PaymentMethodButton (card, true);
+                method.selected.connect ((card) => {
+                    selected_payment_method = card;
+                });
+
                 method.radio.join_group (new_payment_method.radio);
                 payment_methods.add (method);
             }
+        } else {
+            anon_id = ElementaryAccount.Utils.base64_url_encode (ElementaryAccount.Utils.generate_random_bytes (32));
         }
 
         payment_methods.add (new_payment_method);
@@ -125,58 +132,54 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
         pay_button = (Gtk.Button) add_button (_("Pay $%d.00").printf (amount), Gtk.ResponseType.APPLY);
         pay_button.get_style_context ().add_class (Gtk.STYLE_CLASS_SUGGESTED_ACTION);
         pay_button.has_default = true;
-        pay_button.sensitive = false;
 
         response.connect (on_response);
     }
 
-    private void show_spinner_view () {
-        if (processing_layout == null) {
-            processing_layout = new Gtk.Grid ();
-            processing_layout.orientation = Gtk.Orientation.VERTICAL;
-            processing_layout.column_spacing = 12;
+    private void show_payment_intent_view () {
+        if (payment_layout == null) {
+            payment_layout = new Gtk.Grid ();
 
-            var spinner = new Gtk.Spinner ();
-            spinner.width_request = 48;
-            spinner.height_request = 48;
-            spinner.start ();
+            var webview = new ElementaryAccount.NativeWebView ();
+            webview.height_request = 300;
 
-            var label = new Gtk.Label (_("Processing"));
-            label.hexpand = true;
-            label.get_style_context ().add_class (Granite.STYLE_CLASS_H2_LABEL);
+            var payment_uri = new Soup.URI (ElementaryAccount.Utils.get_api_uri ("/intents/do_charge"));
 
-            var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-            box.valign = Gtk.Align.CENTER;
-            box.vexpand = true;
+            var args = new GLib.HashTable<string, string>(str_hash, str_equal);
+            args.insert ("amount", (amount * 100).to_string ());
+            args.insert ("app_id", app_id);
+            args.insert ("stripe_account", stripe_key);
 
-            box.add (spinner);
-            box.add (label);
-            processing_layout.add (box);
+            if (selected_payment_method != null) {
+                args.insert ("payment_method", selected_payment_method.stripe_id);
+            }
 
-            layouts.add_named (processing_layout, "processing");
+            if (anon_id != null) {
+                args.insert ("anon_id", anon_id);
+            }
+
+            payment_uri.set_query_from_form (args);
+
+            var payment_url = payment_uri.to_string (false);
+            if (elementary_account.account_token != null) {
+                webview.get_with_bearer (payment_url, elementary_account.account_token);
+            } else {
+                webview.load_uri (payment_url);
+            }
+
+            payment_layout.add (webview);
+
+            layouts.add_named (payment_layout, "payment");
             layouts.show_all ();
         }
 
-        layouts.set_visible_child_name ("processing");
-        cancel_button.sensitive = false;
-        pay_button.sensitive = false;
-    }
-
-    private void show_card_view () {
-        pay_button.label = _("Pay $%d.00").printf (amount);
-        cancel_button.label = _("Cancel");
-
-        layouts.set_visible_child_name ("card");
+        layouts.set_visible_child_name ("payment");
     }
 
     private void on_response (Gtk.Dialog source, int response_id) {
         switch (response_id) {
             case Gtk.ResponseType.APPLY:
-                if (layouts.visible_child_name == "card") {
-                    show_spinner_view ();
-                } else {
-                    show_card_view ();
-                }
+                show_payment_intent_view ();
                 break;
             case Gtk.ResponseType.CLOSE:
                 if (layouts.visible_child_name == "error" && returned_token != null) {

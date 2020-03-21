@@ -18,22 +18,32 @@
 */
 
 public class AppCenter.Widgets.PaymentMethodButton : Gtk.Revealer {
-    public string title { get; construct set; }
-    public string icon { get; construct set; }
+    public signal void selected (ElementaryAccount.Card? card);
+
+    public ElementaryAccount.Card card { get; construct; }
     public bool removable { get; construct set; }
 
     public Gtk.RadioButton radio { get; private set; }
 
-    public PaymentMethodButton (string _title, string? _icon = null, bool _removable = false) {
+    public PaymentMethodButton (ElementaryAccount.Card? card, bool _removable = false) {
         Object (
-            title: _title,
-            icon: _icon,
+            card: card,
             removable: _removable
         );
     }
 
     construct {
         reveal_child = true;
+
+        string? title, icon;
+
+        if (card == null) {
+            title = _("New Payment Method…");
+            icon = null;
+        } else {
+            title = "%s %s".printf (card.title_case_brand, card.last_four);
+            icon = "payment-card-%s".printf (card.brand);
+        }
 
         var title_label = new Gtk.Label (title);
         title_label.halign = Gtk.Align.START;
@@ -54,6 +64,12 @@ public class AppCenter.Widgets.PaymentMethodButton : Gtk.Revealer {
 
         radio = new Gtk.RadioButton (null);
         radio.add (radio_grid);
+
+        radio.toggled.connect (() => {
+            if (radio.active) {
+                selected (card);
+            }
+        });
 
         var radio_style = radio.get_style_context ();
         radio_style.add_class (Gtk.STYLE_CLASS_BUTTON);
@@ -81,7 +97,7 @@ public class AppCenter.Widgets.PaymentMethodButton : Gtk.Revealer {
             overlay.add_overlay (remove_button);
 
             remove_button.clicked.connect (() => {
-                // TODO: Actually remove things
+                card.@delete ();
                 reveal_child = false;
             });
         }
