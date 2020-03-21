@@ -17,7 +17,7 @@
 * Boston, MA 02110-1301 USA
 */
 
-public class AppCenter.Widgets.PaymentMethodButton : Gtk.Revealer {
+public class FlatpakAuthenticator.Widgets.PaymentMethodButton : Gtk.Revealer {
     public signal void selected (ElementaryAccount.Card? card);
 
     public ElementaryAccount.Card card { get; construct; }

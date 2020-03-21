@@ -24,8 +24,8 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
     private Gtk.Grid? payment_layout = null;
     private Gtk.Stack layouts;
 
-    private AppCenter.Widgets.PaymentMethodButton new_payment_method;
-    private Gtk.Button pay_button;
+    private Widgets.PaymentMethodButton new_payment_method;
+    private Gtk.Label primary_label;
     private Gtk.Button cancel_button;
 
     public ElementaryAccount.AccountManager elementary_account { get; construct; }
@@ -62,7 +62,7 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
         overlay.add (image);
         overlay.add_overlay (overlay_image);
 
-        var primary_label = new Gtk.Label (_("Pay $%d for %s").printf (amount, app_name));
+        primary_label = new Gtk.Label (_("Pay $%d for %s").printf (amount, app_name));
         primary_label.get_style_context ().add_class ("primary");
         primary_label.xalign = 0;
 
@@ -75,14 +75,14 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
         var payment_methods = new Gtk.Grid ();
         payment_methods.orientation = Gtk.Orientation.VERTICAL;
 
-        new_payment_method = new AppCenter.Widgets.PaymentMethodButton (null, false);
+        new_payment_method = new Widgets.PaymentMethodButton (null, false);
         new_payment_method.selected.connect ((card) => {
             selected_payment_method = card;
         });
 
         if (elementary_account.logged_in) {
             foreach (var card in elementary_account.get_cards ()) {
-                var method = new AppCenter.Widgets.PaymentMethodButton (card, true);
+                var method = new Widgets.PaymentMethodButton (card, true);
                 method.selected.connect ((card) => {
                     selected_payment_method = card;
                 });
@@ -127,9 +127,22 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
 
         cancel_button = (Gtk.Button) add_button (_("Cancel"), Gtk.ResponseType.CLOSE);
 
-        pay_button = (Gtk.Button) add_button (_("Pay $%d.00").printf (amount), Gtk.ResponseType.APPLY);
-        pay_button.get_style_context ().add_class (Gtk.STYLE_CLASS_SUGGESTED_ACTION);
-        pay_button.has_default = true;
+        var humble_button = new Widgets.HumbleButton ();
+        humble_button.amount = amount;
+        humble_button.allow_free = true;
+        humble_button.can_purchase = true;
+        humble_button.show_all ();
+        humble_button.notify["amount"].connect (() => {
+            amount = humble_button.amount;
+            primary_label.label = _("Pay $%d for %s").printf (amount, app_name);
+        });
+
+        humble_button.payment_requested.connect ((requested_amount) => {
+            amount = requested_amount;
+            show_payment_intent_view ();
+        });
+
+        (get_action_area () as Gtk.Box).pack_end (humble_button);
 
         response.connect (on_response);
     }
@@ -180,16 +193,9 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
 
     private void on_response (Gtk.Dialog source, int response_id) {
         switch (response_id) {
-            case Gtk.ResponseType.APPLY:
-                show_payment_intent_view ();
-                break;
             case Gtk.ResponseType.CLOSE:
-                if (layouts.visible_child_name == "error" && returned_token != null) {
-                    download_requested (returned_token, false);
-                } else {
-                    cancelled ();
-                    destroy ();
-                }
+                cancelled ();
+                destroy ();
 
                 break;
         }
