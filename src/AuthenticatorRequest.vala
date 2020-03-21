@@ -244,11 +244,10 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             }
 
             var id = root.get_string_member ("id");
-            var stripe_key = root.get_string_member ("stripe_key");
             var app_name = root.get_string_member ("name");
             var amount = root.get_int_member ("recommended_amount");
 
-            var purchase_dialog = new Dialogs.PurchaseDialog (elementary_account, (int)amount, app_name, id, stripe_key);
+            var purchase_dialog = new Dialogs.PurchaseDialog (elementary_account, (int)amount, app_name, id);
             purchase_dialog.download_requested.connect ((token, store) => {
                 purchase_dialog.destroy ();
 

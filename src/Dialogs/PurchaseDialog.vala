@@ -32,21 +32,19 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
     public int amount { get; construct set; }
     public string app_name { get; construct set; }
     public string app_id { get; construct set; }
-    public string stripe_key { get; construct set; }
 
     private string? returned_token = null;
 
     private ElementaryAccount.Card? selected_payment_method = null;
     private string? anon_id = null;
 
-    public PurchaseDialog (ElementaryAccount.AccountManager account, int _amount, string _app_name, string _app_id, string _stripe_key) {
+    public PurchaseDialog (ElementaryAccount.AccountManager account, int _amount, string _app_name, string _app_id) {
         Object (
             amount: _amount,
             app_name: _app_name,
             app_id: _app_id,
             deletable: false,
             resizable: false,
-            stripe_key: _stripe_key,
             title: _("Payment"),
             elementary_account: account
         );
@@ -151,7 +149,6 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
             var args = new GLib.HashTable<string, string>(str_hash, str_equal);
             args.insert ("amount", (amount * 100).to_string ());
             args.insert ("app_id", app_id);
-            args.insert ("stripe_account", stripe_key);
 
             if (selected_payment_method != null) {
                 args.insert ("payment_method", selected_payment_method.stripe_id);
