@@ -141,6 +141,9 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
             payment_layout = new Gtk.Grid ();
 
             var webview = new ElementaryAccount.NativeWebView ();
+            webview.close.connect (() => {
+                cancel_button.activate ();
+            });
             webview.height_request = 300;
 
             var payment_uri = new Soup.URI (ElementaryAccount.Utils.get_api_uri ("/intents/do_charge"));
