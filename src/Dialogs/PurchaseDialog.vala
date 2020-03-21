@@ -177,6 +177,8 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
         }
 
         layouts.set_visible_child_name ("payment");
+        // Webview has its own buttons
+        get_action_area ().visible = false;
     }
 
     private void on_response (Gtk.Dialog source, int response_id) {
