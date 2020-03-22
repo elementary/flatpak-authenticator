@@ -111,11 +111,8 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             foreach (var id in tokens.keys) {
                 var token = tokens[id];
 
-                resolve_id (id, token);
+                resolve_id (id, token, true);
                 warning ("resolved %s", id);
-
-                StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
-                StoredTokens.get_default ().save_tokens ();
             }
 
             request_data.denied_tokens.clear ();
@@ -126,7 +123,7 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             check_done ();
         }
 
-        private void resolve_id (string id, string token) {
+        private void resolve_id (string id, string token, bool save = false) {
             var refs_for_token = request_data.resolved_tokens[token];
             if (refs_for_token == null) {
                 refs_for_token = new Gee.ArrayList<string> ();
@@ -143,6 +140,11 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
             request_data.unresolved_tokens.remove (id);
             request_data.denied_tokens.remove (id);
+
+            if (save) {
+                StoredTokens.get_default ().update_download_token (request_data.remote, id, token);
+                StoredTokens.get_default ().save_tokens ();
+            }
         }
 
         private Json.Node? verify_api_call_json_response (Soup.Message msg) {
@@ -245,6 +247,8 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
 
                 if (amount > 0) {
                     poll_token.begin (id);
+                } else if (amount == 0) {
+                    get_temp_token.begin (id);
                 }
             });
 
@@ -255,10 +259,19 @@ public class FlatpakAuthenticator.AuthenticatorRequest : GLib.Object {
             purchase_dialog.run ();
         }
 
+        private async void get_temp_token (string id) {
+            var token = yield elementary_account.get_temp_token (id);
+            if (token != null) {
+                resolve_id (id, token, false);
+            }
+
+            yield get_unresolved_tokens ();
+        }
+
         private async void poll_token (string id) {
             var token = yield elementary_account.poll_for_token (id);
             if (token != null) {
-                resolve_id (id, token);
+                resolve_id (id, token, true);
                 yield get_unresolved_tokens ();
             } else {
                 yield get_unresolved_tokens ();

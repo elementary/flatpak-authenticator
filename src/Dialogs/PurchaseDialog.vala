@@ -145,6 +145,10 @@ public class FlatpakAuthenticator.Dialogs.PurchaseDialog : Gtk.Dialog {
             }
         });
 
+        humble_button.download_requested.connect (() => {
+            download_requested (0);
+        });
+
         (get_action_area () as Gtk.Box).pack_end (humble_button);
 
         response.connect (on_response);
