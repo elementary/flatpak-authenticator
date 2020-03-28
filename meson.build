@@ -1,5 +1,5 @@
 project(
-    'io.elementary.flatpak-authenticator',
+    'io.elementary.FlatpakAuthenticator',
     'vala', 'c',
     version: '1.0.0'
 )
@@ -33,4 +33,6 @@ executable(
     ],
     install: true
 )
+
+subdir('data')
 

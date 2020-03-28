@@ -1,11 +1,12 @@
 {
-    "app-id": "io.elementary.flatpak-authenticator",
+    "app-id": "io.elementary.FlatpakAuthenticator",
+    "default-branch": "autoinstall",
     "base": "io.elementary.BaseApp",
     "base-version": "juno-19.08",
     "runtime": "org.gnome.Platform",
     "runtime-version": "3.36",
     "sdk": "org.gnome.Sdk",
-    "command": "io.elementary.flatpak-authenticator",
+    "command": "io.elementary.FlatpakAuthenticator",
     "finish-args" : [
         "--device=dri",
         "--share=ipc",
