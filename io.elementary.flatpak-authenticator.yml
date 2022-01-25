@@ -1,0 +1,17 @@
+app-id: io.elementary.flatpak-authenticator
+runtime: io.elementary.Platform
+runtime-version: '6.1'
+sdk: io.elementary.Sdk
+command: io.elementary.flatpak-authenticator
+finish-args:
+  - '--share=ipc'
+  - '--share=network'
+  - '--socket=fallback-x11'
+  - '--socket=wayland'
+
+modules:
+  - name: flaptak-authenticator
+    buildsystem: meson
+    sources:
+      - type: dir
+        path: .
